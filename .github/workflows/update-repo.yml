@@ -1,0 +1,99 @@
+name: Update package repos
+
+on:
+  repository_dispatch:
+    types: [release-published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.3.1)"
+        required: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  update-repos:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      KEY_ID: ${{ vars.KEY_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          TAG="${{ github.event.client_payload.tag || inputs.tag }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y reprepro createrepo-c
+
+      - name: Import GPG key
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$KEY_ID:6:" | gpg --batch --import-ownertrust
+
+      - name: Download .deb and .rpm packages from release
+        run: |
+          mkdir -p downloads
+          gh release download "${{ steps.version.outputs.tag }}" \
+            --repo supermetrics-public/supermetrics-cli \
+            --pattern "*.deb" \
+            --pattern "*.rpm" \
+            --dir downloads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------- APT repo (served at root: /dists/, /pool/) ----------
+      - name: Build APT repo
+        run: |
+          mkdir -p apt-repo/conf
+
+          cat > apt-repo/conf/distributions <<DISTCONF
+          Origin: Supermetrics
+          Label: Supermetrics CLI
+          Suite: stable
+          Codename: stable
+          Components: main
+          Architectures: amd64 arm64
+          SignWith: $KEY_ID
+          DISTCONF
+
+          for deb in downloads/*.deb; do
+            reprepro -Vb apt-repo includedeb stable "$deb"
+          done
+
+          cp pubkey.gpg apt-repo/pubkey.gpg
+
+      # ---------- YUM/DNF repo (served at /yum/) ----------
+      - name: Build YUM repo
+        run: |
+          mkdir -p yum-repo/packages
+          cp downloads/*.rpm yum-repo/packages/
+          createrepo_c yum-repo
+          gpg --batch --yes --detach-sign --armor yum-repo/repodata/repomd.xml
+
+      # ---------- Combine and deploy to GitHub Pages ----------
+      - name: Assemble site
+        run: |
+          mkdir -p site/yum
+          cp -r apt-repo/* site/
+          cp -r yum-repo/* site/yum/
+          cp pubkey.gpg site/
+          [ -f index.html ] && cp index.html site/
+
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment

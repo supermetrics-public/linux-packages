@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supermetrics CLI — Linux Package Repository</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #24292f; line-height: 1.6; }
+    h1 { border-bottom: 1px solid #d0d7de; padding-bottom: 0.3em; }
+    h2 { margin-top: 1.5em; }
+    code { background: #f6f8fa; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }
+    pre { background: #f6f8fa; padding: 1em; border-radius: 6px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
+    a { color: #0969da; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Supermetrics CLI — Linux Packages</h1>
+  <p>
+    This site hosts APT and YUM package repositories for the
+    <a href="https://github.com/supermetrics-public/supermetrics-cli">Supermetrics CLI</a>.
+    Packages are updated automatically on each release.
+  </p>
+
+  <h2>APT (Debian / Ubuntu)</h2>
+  <pre><code># Add signing key
+curl -fsSL https://supermetrics-public.github.io/linux-packages/pubkey.gpg \
+  | sudo gpg --dearmor -o /usr/share/keyrings/supermetrics.gpg
+
+# Add repository
+echo "deb [signed-by=/usr/share/keyrings/supermetrics.gpg] https://supermetrics-public.github.io/linux-packages/ stable main" \
+  | sudo tee /etc/apt/sources.list.d/supermetrics.list
+
+# Install
+sudo apt-get update &amp;&amp; sudo apt-get install supermetrics</code></pre>
+
+  <h2>YUM / DNF (RHEL / Fedora / Amazon Linux)</h2>
+  <pre><code># Add repository
+sudo tee /etc/yum.repos.d/supermetrics.repo &lt;&lt;EOF
+[supermetrics]
+name=Supermetrics CLI
+baseurl=https://supermetrics-public.github.io/linux-packages/yum/
+gpgcheck=1
+gpgkey=https://supermetrics-public.github.io/linux-packages/pubkey.gpg
+enabled=1
+EOF
+
+# Install
+sudo yum install supermetrics</code></pre>
+
+  <h2>Alpine / Manual download</h2>
+  <p>
+    Download <code>.deb</code>, <code>.rpm</code>, or <code>.apk</code> packages directly from
+    <a href="https://github.com/supermetrics-public/supermetrics-cli/releases">GitHub Releases</a>.
+  </p>
+
+  <h2>More info</h2>
+  <p>
+    See the <a href="https://github.com/supermetrics-public/supermetrics-cli#installation">CLI installation guide</a>
+    for Homebrew, <code>go install</code>, and building from source.
+  </p>
+</body>
+</html>
